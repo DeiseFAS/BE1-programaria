@@ -1,65 +1,51 @@
 const { request, response } = require("express")
 const express = require("express") //iniciando o express
 const router = express.Router()//configurando a primeira parte da rota
-const { v4: uuidv4 } = require('uuid')//biblioteca do identificador 
+const cors = require('cors')//aqui estou trazendo o pacote cors que permite consumir essa api no front end
+
+const conectaBancoDeDados = require('./bancoDeDaoos')//aqui estou ligando ao arquivo bancoDeDados
+conectaBancoDeDados()//estou chamando a função que conecta ao banco de dados
+
+const Mulher = require('./mulherModel')
 
  const app = express()//iniciando o app
  app.use(express.json())
-
+ app.unsubscribe(cors())
  const porta = 3000//criando a porta
 
-//criando lista inicial de mulheres
- const mulheres = [
-    {
-        id: '1',
-        nome: 'Deise Andrade',
-        imagem: 'https://media.licdn.com/media/AAYQAQSOAAgAAQAAAAAAAB-zrMZEDXI2T62PSuT6kpB6qg.png',
-        minibio: 'Desenvolvedora'
-    },
-    {
-        id: '2',
-        nome: 'Deise Andrade',
-        imagem: 'https://media.licdn.com/media/AAYQAQSOAAgAAQAAAAAAAB-zrMZEDXI2T62PSuT6kpB6qg.png',
-        minibio: 'Desenvolvedora'   
-    },
-    {
-        id: '3',
-        nome: 'Deise Andrade',
-        imagem: 'https://media.licdn.com/media/AAYQAQSOAAgAAQAAAAAAAB-zrMZEDXI2T62PSuT6kpB6qg.png',
-        minibio: 'Desenvolvedora'
-    }
-   ]
-
 //GET
- function mostraMulheres(request, response) {
-    response.json(mulheres)
- }
+ async function mostraMulheres(request, response) {
+    try {
+        const mulheresVindasDoBancoDeDados = await Mulher.find()
+
+        response.json(mulheresVindasDoBancoDeDados)
+    } catch (erro) {
+        console.log(erro)
+    }
+}
 
 //POST
- function criaMulher(request, response) {
-    const novaMulher = {
-        id: uuidv4(),//id gerado automaticamente por causa da biblioteca
+ async function criaMulher(request, response) {
+    const novaMulher = new Mulher({
         nome: request.body.nome,
         imagem: request.body.imagem,
-        minibio: request.body.minibio
+        minibio: request.body.minibio,
+        citacao: request.body.citacao
+    })
+
+    try {
+        const mulherCriada = await novaMulher.save()
+        response.status(201).json(mulherCriada)
+    } catch (erro) {
+        console.log(erro)
     }
-
-    mulheres.push(novaMulher)
-
-    response.json(mulheres)
-
  }
 
 //PATCH
-function corrigeMulher(request, response) {
-    function encontraMulher(mulher) {
-        if (mulher.id === request.params.id) {
-            return mulher
-        }
-    }
-
-    const mulherEncontrada = mulheres.find(encontraMulher)
-
+async function corrigeMulher(request, response) {
+   try {
+    const mulherEncontrada = await Mulher.findById(request.params.id)
+    
     if (request.body.nome) {
         mulherEncontrada.nome = request.body.nome
     }
@@ -68,25 +54,30 @@ function corrigeMulher(request, response) {
         mulherEncontrada.minibio = request.body.minibio
     }
 
-    if (request.body.imagem) {
-        mulherEncontrada.imagem = request.body.imagem
+    if (request.body.citacao) {
+        mulherEncontrada.citacao = request.body.citacao
     }
+    
+    const mulherAtualizadaNoBancoDeDados = await mulherEncontrada.save()
+    
+    response.json(mulherAtualizadaNoBancoDeDados)
 
-    response.json(mulheres)
+   } catch (erro) {
+    console.log(erro)
+   } 
+
 }
 
 //DELETE
-function deletaMulher(request, response) {
-    function todasMenosEla(mulher) {
-       if(mulher.id !== request.params.id) {
-       return mulher 
-       }
-    }
-    
-    const mulheresQueFicam = mulheres.filter(todasMenosEla)
+async function deletaMulher(request, response) {
+    try {
+        await Mulher.findByIdAndDelete(request.params.id)
+        response.json({ messagem: 'Mulher deletada com sucesso!'})
 
-    response.json(mulheresQueFicam)
-}
+    } catch(erro) {
+        console.log(erro)
+    }
+ }
 
 app.use(router.get('/mulheres', mostraMulheres))//configurei rota GET /mulheres
 app.use(router.post('/mulheres', criaMulher))//configurei rota Post/mulheres
